@@ -129,7 +129,7 @@ button,input{font:inherit;color:inherit}
       <h2>Calculează-ți averea netă</h2>
       <div class="qr" id="qr"><span class="fallback">Se generează codul QR…</span></div>
       <p class="url" id="url">…</p>
-      <div class="steps"><span>1 Vârsta</span><span>2 Acumulări</span><span>3 Datorii</span><span>4 Venit anual</span></div>
+      <div class="steps"><span>1 Vârsta</span><span>2 Acumulări și datorii</span><span>3 Salariu lunar</span></div>
       <button type="button" class="link-btn" id="editUrlBtn">Schimbă linkul din QR</button>
       <form class="edit-url" id="editUrl" hidden>
         <input id="urlIn" type="url" aria-label="Linkul participanților" placeholder="https://…">
@@ -152,7 +152,7 @@ button,input{font:inherit;color:inherit}
             <div class="side spend r"><span class="pct num" id="spendPct">0%</span><span class="lbl">Cheltuitori</span><span class="cnt" id="spendCnt">0 persoane</span></div>
           </div>
           <div class="track" role="img" id="track" aria-label="Distribuția rezultatelor"><div class="a" id="accBar" style="width:50%"></div><div class="s" id="spendBar" style="width:50%"></div></div>
-          <div class="progress"><span id="progTxt"></span><span>Acumulator = avere netă ≥ venit anual brut × coeficientul vârstei</span></div>
+          <div class="progress"><span id="progTxt"></span><span>Acumulator = avere netă ≥ salariu lunar × 12 × coeficientul vârstei</span></div>
         </div>
         <p class="empty" id="splitEmpty">Procentele apar aici imediat ce participanții trimit formularul.</p>
       </section>

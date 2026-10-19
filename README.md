@@ -4,7 +4,14 @@ Simulator pentru sesiuni de grup: participanții scanează un cod QR, își calc
 iar ecranul prezentatorului arată în timp real câți participanți sunt activi și ce procent sunt
 **acumulatori de avere** sau **cheltuitori**.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/constantanegura/simulator-avere-neta)
+## Folosire (online, fără instalare)
+
+- **Ecranul prezentatorului:** https://constantanegura.github.io/simulator-avere-neta/prezentare.html
+  Îl deschizi pe laptop / proiector. Codul QR de pe ecran duce participanții direct în sesiunea ta.
+- **Sesiune nouă** (buton pe ecran): pornește o sesiune curată, cu cod QR nou.
+
+Merge de pe orice rețea, inclusiv date mobile. Nu are nevoie de server sau de laptop pornit pentru participanți;
+ecranul prezentatorului trebuie doar să fie deschis ca să vezi rezultatele live.
 
 ## Cum se calculează
 1. **Vârsta** dă coeficientul: până în 25 ani 0,5 · 26–30 ani 1 · 31–40 ani 3 · 41–60 ani 6 · peste 60 ani 9.
@@ -15,31 +22,19 @@ iar ecranul prezentatorului arată în timp real câți participanți sunt activ
 
 Sursa coeficienților: „Milionarul de lângă noi”.
 
-## Pagini
-- `/` — formularul pentru participanți (se deschide din codul QR).
-- `/prezentare?key=CHEIA` — ecranul pentru proiector: QR, participanți activi, procente live, pe grupe de vârstă.
-  Cu cheia apare butonul „Sesiune nouă”, care șterge rezultatele.
-
-Se trimit doar profilul (acumulator / cheltuitor) și grupa de vârstă, anonim. Nu se salvează nume sau sume.
+## Confidențialitate
+Calculul se face pe telefonul participantului. În sesiunea live se trimit doar profilul (acumulator / cheltuitor)
+și grupa de vârstă, anonim, printr-un releu public gratuit (MQTT). Nu se trimit nume sau sume.
 Fiecare telefon e numărat o singură dată, chiar dacă scanează codul de mai multe ori.
 
-## Online, cu link fix (Render, gratuit)
-1. Apasă butonul **Deploy to Render** de mai sus și intră în cont (te poți loga cu GitHub).
-2. Când ți se cere `ADMIN_KEY`, alege o cheie pentru ecranul de prezentare (de ex. un cuvânt și câteva cifre).
-3. După publicare primești un link de forma `https://simulator-avere-neta-xxxx.onrender.com`.
-   - Ecran prezentare: `https://…onrender.com/prezentare?key=CHEIA`
-   - Codul QR de pe ecran duce automat la formularul de pe același link.
+## Structură
+- `docs/` — versiunea publicată pe GitHub Pages (generată, nu se editează direct).
+- `public/` + `server.js` — versiunea cu server propriu (laptop sau Render), aceeași interfață.
+- `tools/build-pages.js` — regenerează `docs/` din `public/`: `node tools/build-pages.js`.
 
-Pe planul gratuit, aplicația „adoarme” după 15 minute fără vizitatori și se trezește în aproximativ un minut.
-Deschide ecranul de prezentare cu câteva minute înainte de sesiune. Rezultatele se păstrează cât rulează serverul;
-„Sesiune nouă” le șterge oricând.
-
-## Local, de pe laptop
+## Variantă cu server propriu (opțional)
 ```
 node server.js
 ```
-Fără dependințe (Node 18+). În consolă apar linkul ecranului de prezentare și cheia.
-Dacă `bin/cloudflared.exe` există (Cloudflare Tunnel), serverul deschide singur și un link public https temporar.
-Fără el, telefoanele trebuie să fie pe aceeași rețea Wi-Fi cu laptopul.
-
-Variabile opționale: `PORT`, `ADMIN_KEY`, `PUBLIC_URL`, `TUNNEL=0`.
+Fără dependințe (Node 18+). Pentru găzduire pe Render există `render.yaml`
+(cere variabila `ADMIN_KEY`, cheia ecranului de prezentare).
