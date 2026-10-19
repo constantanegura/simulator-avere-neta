@@ -267,6 +267,9 @@ button,input{font:inherit;color:inherit}
 
   function setConn(on, txt){ $("#conn").classList.toggle("on", on); $("#connTxt").textContent = txt; }
   const subscribe = () => client.subscribe(L.ROOT + session + "/#", {qos: 1});
+  // Tell the form which session is running; refreshed every minute so the newest screen always wins.
+  const announce = () => { if (client && client.connected) L.announceSession(client, session, brokerIx); };
+  setInterval(announce, 60000);
 
   async function start(){
     setConn(false, "Se conectează…");
@@ -274,18 +277,18 @@ button,input{font:inherit;color:inherit}
       const r = await L.connectFirst({ clientId: "bilant_h_" + L.randomId(10), queueQoSZero: false });
       client = r.client; brokerIx = r.index;
     }catch(e){
-      setConn(false, "Fără conexiune live. Reîncerc…"); drawQR(participantLink());
+      setConn(false, "Fără conexiune live. Reîncerc…"); drawQR(L.FORM_LINK);
       setTimeout(start, 5000); return;
     }
     client.on("message", onMessage);
     client.on("error", () => {});
-    client.on("connect", () => { setConn(true, "Live"); subscribe(); });
+    client.on("connect", () => { setConn(true, "Live"); subscribe(); announce(); });
     client.on("offline", () => setConn(false, "Reconectare…"));
     client.on("reconnect", () => setConn(false, "Reconectare…"));
-    setConn(true, "Live"); subscribe(); drawQR(participantLink());
+    setConn(true, "Live"); subscribe(); announce(); drawQR(L.FORM_LINK);
   }
   render(stats());
-  drawQR(participantLink());
+  drawQR(L.FORM_LINK);
   start();
 
   /* ---------- controls ---------- */
@@ -299,8 +302,8 @@ button,input{font:inherit;color:inherit}
     // A new session gets new topics and a new QR; the previous session's phones are no longer counted.
     if (client) client.unsubscribe(L.ROOT + session + "/#");
     newSession(); results.clear(); seen.clear(); render(stats());
-    if (client) subscribe();
-    drawQR(participantLink());
+    if (client){ subscribe(); announce(); }
+    drawQR(L.FORM_LINK);
     $("#confirm").hidden = true; $("#reset").hidden = false;
   });
 })();

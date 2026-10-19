@@ -743,24 +743,19 @@ footer{color:var(--muted);font-size:12px;padding-block:0 32px}
   if (!pid || !ID_RE.test(pid)) pid = newId();
   setPid(pid);
 
-  // The session comes from the QR (?s=…&b=…) and is remembered, so a reload stays in the same session.
-  let session = null, brokerIx = 0;
-  (function(){
-    if (!L) return;
-    const q = new URLSearchParams(location.search);
-    let s = q.get("s"), b = parseInt(q.get("b"), 10);
-    if (!(s && L.SESSION_RE.test(s))){
-      s = null;
-      try{ const st = JSON.parse(localStorage.getItem(SESS_KEY) || "null"); if (st && L.SESSION_RE.test(st.s)){ s = st.s; b = st.b; } }catch(e){}
-    }
-    if (!s) return;
-    if (!(b >= 0 && b < L.BROKERS.length)) b = 0;
-    try{ localStorage.setItem(SESS_KEY, JSON.stringify({s, b})); }catch(e){}
-    session = s; brokerIx = b;
-  })();
-  const isLive = !!(session && L && window.mqtt);
-  const base = session && L ? L.ROOT + session : null;
+  // Which session to join: a direct link (?s=…&b=…) wins; otherwise the relays say which session the
+  // presenter's screen runs now (the QR holds one fixed, name-free link); the last one used is the fallback.
+  let session = null, brokerIx = 0, isLive = false, base = null;
   const presenceTopic = () => base + "/p/" + pid;
+  function readStored(){
+    try{ const st = JSON.parse(localStorage.getItem(SESS_KEY) || "null"); if (st && L.SESSION_RE.test(st.s) && st.b >= 0 && st.b < L.BROKERS.length) return st; }catch(e){}
+    return null;
+  }
+  function useSession(s, b){
+    session = s; brokerIx = b; base = L.ROOT + s; isLive = true;
+    try{ localStorage.setItem(SESS_KEY, JSON.stringify({s, b})); }catch(e){}
+    connectLive();
+  }
 
   let client = null;
   let active = true; // false while another tab of this phone holds the form
@@ -776,7 +771,16 @@ footer{color:var(--muted);font-size:12px;padding-block:0 32px}
   }
   function hello(){ if (isLive && active && client && client.connected && document.visibilityState === "visible") client.publish(presenceTopic(), "1", {qos: 0}); }
   function bye(){ if (client && client.connected) client.publish(presenceTopic(), "0", {qos: 0}); }
-  connectLive();
+  const sessionReady = (async () => {
+    if (!L || !window.mqtt) return;
+    const q = new URLSearchParams(location.search);
+    const s = q.get("s"), b = parseInt(q.get("b"), 10);
+    if (s && L.SESSION_RE.test(s)) return useSession(s, b >= 0 && b < L.BROKERS.length ? b : 0);
+    const found = await L.discoverSession();
+    if (found) return useSession(found.s, found.b);
+    const st = readStored();
+    if (st) useSession(st.s, st.b);
+  })();
   setInterval(hello, 10000);
   document.addEventListener("visibilitychange", hello);
   window.addEventListener("pagehide", e => { if (!e.persisted && active) bye(); });
@@ -801,7 +805,9 @@ footer{color:var(--muted);font-size:12px;padding-block:0 32px}
     if (!c.ready) return;
     note.hidden = false; note.className = "sent";
     if (usingSample){ txt.textContent = "Acesta este exemplul din prezentare. Nu se trimite."; return; }
-    if (!session){ txt.textContent = "Rezultatul este doar pe acest telefon. Ca să fie numărat, scanează codul QR de pe ecranul prezentatorului."; return; }
+    txt.textContent = "Se trimite…";
+    await sessionReady;
+    if (!session){ note.className = "sent bad"; txt.textContent = "Nu am găsit sesiunea prezentatorului. Verifică dacă ecranul de prezentare este deschis, apoi reîncarcă pagina."; return; }
     if (!isLive || !client){ note.className = "sent bad"; txt.textContent = "Nu ne-am putut conecta la sesiune. Verifică internetul și reîncarcă pagina."; return; }
     txt.textContent = "Se trimite…";
     const payload = JSON.stringify({verdict: c.acc ? "acc" : "spend", bracket: BRACKETS.indexOf(c.br), at: Date.now()});

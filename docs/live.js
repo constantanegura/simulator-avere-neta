@@ -48,5 +48,40 @@
     throw new Error("Niciun releu live nu răspunde.");
   }
 
-  window.BilantLive = { BROKERS, ROOT, SESSION_RE, ID_RE, randomId, connectOne, connectFirst };
+  // The QR holds one fixed, name-free link, so it cannot carry the session. Instead the host screen
+  // announces its current session here (retained, refreshed every minute) and the form looks it up.
+  const ROOM_TOPIC = ROOT + "room/main";
+  const FORM_LINK = "https://tinyurl.com/formular-avere-neta"; // redirects to formular.html
+
+  function announceSession(client, session, brokerIndex) {
+    client.publish(ROOM_TOPIC, JSON.stringify({ s: session, b: brokerIndex, at: Date.now() }), { qos: 1, retain: true });
+  }
+
+  // Asks every relay at once and keeps the freshest announcement: if the host had to switch relays,
+  // an older announcement left on another relay loses on its timestamp.
+  function discoverSession(waitMs) {
+    const one = index => new Promise(resolve => {
+      let client = null, done = false;
+      const finish = v => { if (done) return; done = true; clearTimeout(timer); try { client && client.end(true); } catch (e) {} resolve(v); };
+      const timer = setTimeout(() => finish(null), waitMs || 7000);
+      try {
+        client = window.mqtt.connect(BROKERS[index], { clientId: "bilant_d_" + randomId(10), connectTimeout: 6000, reconnectPeriod: 0, clean: true });
+      } catch (e) { return finish(null); }
+      client.on("error", () => finish(null));
+      // A retained announcement arrives right after subscribing; silence for 2 s means this relay has none.
+      client.on("connect", () => client.subscribe(ROOM_TOPIC, { qos: 1 }, () => setTimeout(() => finish(null), 2000)));
+      client.on("message", (topic, buf) => {
+        try {
+          const d = JSON.parse(buf.toString());
+          if (SESSION_RE.test(d.s) && d.b === index && Number.isFinite(d.at)) return finish({ s: d.s, b: d.b, at: d.at });
+        } catch (e) {}
+        finish(null);
+      });
+    });
+    if (!window.mqtt) return Promise.resolve(null);
+    return Promise.all(BROKERS.map((_, i) => one(i))).then(list =>
+      list.filter(Boolean).sort((x, y) => y.at - x.at)[0] || null);
+  }
+
+  window.BilantLive = { BROKERS, ROOT, SESSION_RE, ID_RE, FORM_LINK, randomId, connectOne, connectFirst, announceSession, discoverSession };
 })();

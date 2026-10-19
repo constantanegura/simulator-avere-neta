@@ -47,24 +47,19 @@ form = replaceBetween(form, "  /* ---------- live session", "  const KEY = ", ` 
   if (!pid || !ID_RE.test(pid)) pid = newId();
   setPid(pid);
 
-  // The session comes from the QR (?s=…&b=…) and is remembered, so a reload stays in the same session.
-  let session = null, brokerIx = 0;
-  (function(){
-    if (!L) return;
-    const q = new URLSearchParams(location.search);
-    let s = q.get("s"), b = parseInt(q.get("b"), 10);
-    if (!(s && L.SESSION_RE.test(s))){
-      s = null;
-      try{ const st = JSON.parse(localStorage.getItem(SESS_KEY) || "null"); if (st && L.SESSION_RE.test(st.s)){ s = st.s; b = st.b; } }catch(e){}
-    }
-    if (!s) return;
-    if (!(b >= 0 && b < L.BROKERS.length)) b = 0;
-    try{ localStorage.setItem(SESS_KEY, JSON.stringify({s, b})); }catch(e){}
-    session = s; brokerIx = b;
-  })();
-  const isLive = !!(session && L && window.mqtt);
-  const base = session && L ? L.ROOT + session : null;
+  // Which session to join: a direct link (?s=…&b=…) wins; otherwise the relays say which session the
+  // presenter's screen runs now (the QR holds one fixed, name-free link); the last one used is the fallback.
+  let session = null, brokerIx = 0, isLive = false, base = null;
   const presenceTopic = () => base + "/p/" + pid;
+  function readStored(){
+    try{ const st = JSON.parse(localStorage.getItem(SESS_KEY) || "null"); if (st && L.SESSION_RE.test(st.s) && st.b >= 0 && st.b < L.BROKERS.length) return st; }catch(e){}
+    return null;
+  }
+  function useSession(s, b){
+    session = s; brokerIx = b; base = L.ROOT + s; isLive = true;
+    try{ localStorage.setItem(SESS_KEY, JSON.stringify({s, b})); }catch(e){}
+    connectLive();
+  }
 
   let client = null;
   let active = true; // false while another tab of this phone holds the form
@@ -80,7 +75,16 @@ form = replaceBetween(form, "  /* ---------- live session", "  const KEY = ", ` 
   }
   function hello(){ if (isLive && active && client && client.connected && document.visibilityState === "visible") client.publish(presenceTopic(), "1", {qos: 0}); }
   function bye(){ if (client && client.connected) client.publish(presenceTopic(), "0", {qos: 0}); }
-  connectLive();
+  const sessionReady = (async () => {
+    if (!L || !window.mqtt) return;
+    const q = new URLSearchParams(location.search);
+    const s = q.get("s"), b = parseInt(q.get("b"), 10);
+    if (s && L.SESSION_RE.test(s)) return useSession(s, b >= 0 && b < L.BROKERS.length ? b : 0);
+    const found = await L.discoverSession();
+    if (found) return useSession(found.s, found.b);
+    const st = readStored();
+    if (st) useSession(st.s, st.b);
+  })();
   setInterval(hello, 10000);
   document.addEventListener("visibilitychange", hello);
   window.addEventListener("pagehide", e => { if (!e.persisted && active) bye(); });
@@ -105,7 +109,9 @@ form = replaceBetween(form, "  /* ---------- live session", "  const KEY = ", ` 
     if (!c.ready) return;
     note.hidden = false; note.className = "sent";
     if (usingSample){ txt.textContent = "Acesta este exemplul din prezentare. Nu se trimite."; return; }
-    if (!session){ txt.textContent = "Rezultatul este doar pe acest telefon. Ca să fie numărat, scanează codul QR de pe ecranul prezentatorului."; return; }
+    txt.textContent = "Se trimite…";
+    await sessionReady;
+    if (!session){ note.className = "sent bad"; txt.textContent = "Nu am găsit sesiunea prezentatorului. Verifică dacă ecranul de prezentare este deschis, apoi reîncarcă pagina."; return; }
     if (!isLive || !client){ note.className = "sent bad"; txt.textContent = "Nu ne-am putut conecta la sesiune. Verifică internetul și reîncarcă pagina."; return; }
     txt.textContent = "Se trimite…";
     const payload = JSON.stringify({verdict: c.acc ? "acc" : "spend", bracket: BRACKETS.indexOf(c.br), at: Date.now()});
@@ -196,6 +202,9 @@ host = replaceBetween(host, "  function connect(){", "  /* ---------- controls -
 
   function setConn(on, txt){ $("#conn").classList.toggle("on", on); $("#connTxt").textContent = txt; }
   const subscribe = () => client.subscribe(L.ROOT + session + "/#", {qos: 1});
+  // Tell the form which session is running; refreshed every minute so the newest screen always wins.
+  const announce = () => { if (client && client.connected) L.announceSession(client, session, brokerIx); };
+  setInterval(announce, 60000);
 
   async function start(){
     setConn(false, "Se conectează…");
@@ -203,18 +212,18 @@ host = replaceBetween(host, "  function connect(){", "  /* ---------- controls -
       const r = await L.connectFirst({ clientId: "bilant_h_" + L.randomId(10), queueQoSZero: false });
       client = r.client; brokerIx = r.index;
     }catch(e){
-      setConn(false, "Fără conexiune live. Reîncerc…"); drawQR(participantLink());
+      setConn(false, "Fără conexiune live. Reîncerc…"); drawQR(L.FORM_LINK);
       setTimeout(start, 5000); return;
     }
     client.on("message", onMessage);
     client.on("error", () => {});
-    client.on("connect", () => { setConn(true, "Live"); subscribe(); });
+    client.on("connect", () => { setConn(true, "Live"); subscribe(); announce(); });
     client.on("offline", () => setConn(false, "Reconectare…"));
     client.on("reconnect", () => setConn(false, "Reconectare…"));
-    setConn(true, "Live"); subscribe(); drawQR(participantLink());
+    setConn(true, "Live"); subscribe(); announce(); drawQR(L.FORM_LINK);
   }
   render(stats());
-  drawQR(participantLink());
+  drawQR(L.FORM_LINK);
   start();
 
 `, "host transport");
@@ -223,8 +232,8 @@ host = replaceBetween(host, `  $("#yes").addEventListener("click", async ()=>{`,
     // A new session gets new topics and a new QR; the previous session's phones are no longer counted.
     if (client) client.unsubscribe(L.ROOT + session + "/#");
     newSession(); results.clear(); seen.clear(); render(stats());
-    if (client) subscribe();
-    drawQR(participantLink());
+    if (client){ subscribe(); announce(); }
+    drawQR(L.FORM_LINK);
     $("#confirm").hidden = true; $("#reset").hidden = false;
   });
 `, "host reset handler");
