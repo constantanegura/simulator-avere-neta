@@ -6,7 +6,7 @@ iar ecranul prezentatorului arată în timp real câți participanți sunt activ
 
 ## Folosire (online, fără instalare)
 
-- **Ecranul prezentatorului:** https://constantanegura.github.io/simulator-avere-neta/
+- **Ecranul prezentatorului:** https://tinyurl.com/simulator-avere-neta
   Îl deschizi pe laptop / proiector. Codul QR de pe ecran duce participanții direct în sesiunea ta.
 - **Sesiune nouă** (buton pe ecran): pornește o sesiune curată, cu cod QR nou.
 
