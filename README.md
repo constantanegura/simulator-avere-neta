@@ -6,7 +6,7 @@ iar ecranul prezentatorului arată în timp real câți participanți sunt activ
 
 ## Folosire (online, fără instalare)
 
-- **Ecranul prezentatorului:** https://constantanegura.github.io/simulator-avere-neta/prezentare.html
+- **Ecranul prezentatorului:** https://constantanegura.github.io/simulator-avere-neta/
   Îl deschizi pe laptop / proiector. Codul QR de pe ecran duce participanții direct în sesiunea ta.
 - **Sesiune nouă** (buton pe ecran): pornește o sesiune curată, cu cod QR nou.
 
@@ -28,7 +28,7 @@ Calculul se face pe telefonul participantului. În sesiunea live se trimit doar 
 Fiecare telefon e numărat o singură dată, chiar dacă scanează codul de mai multe ori.
 
 ## Structură
-- `docs/` — versiunea publicată pe GitHub Pages (generată, nu se editează direct).
+- `docs/` — versiunea publicată pe GitHub Pages (generată, nu se editează direct): `index.html` ecranul de prezentare, `formular.html` formularul deschis din QR.
 - `public/` + `server.js` — versiunea cu server propriu (laptop sau Render), aceeași interfață.
 - `tools/build-pages.js` — regenerează `docs/` din `public/`: `node tools/build-pages.js`.
 

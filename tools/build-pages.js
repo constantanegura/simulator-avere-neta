@@ -118,7 +118,7 @@ form = replaceBetween(form, "  /* ---------- live session", "  const KEY = ", ` 
   }
 
 `, "form live block");
-write("docs/index.html", form);
+write("docs/formular.html", form); // opened only from the QR
 
 /* ---------- host screen ---------- */
 let host = read("public/prezentare.html");
@@ -135,7 +135,7 @@ host = replaceBetween(host, "  const params = new URLSearchParams(location.searc
 
   /* ---------- QR ---------- */
   function drawQR(text){
-    $("#url").textContent = text.replace(/^https?:\\/\\//,"").replace(/\\?.*$/,"").replace(/\\/$/,"");
+    $("#url").textContent = text.replace(/^https?:\\/\\//,"").replace(/\\?.*$/,"").replace(/\\/(formular\\.html)?$/,"");
     const box = $("#qr");
     if (typeof window.qrcode !== "function"){ box.innerHTML = '<span class="fallback"></span>'; box.firstChild.textContent = "Deschide în browser: " + text; return; }
     const qr = window.qrcode(0, "M"); qr.addData(text); qr.make();
@@ -150,7 +150,7 @@ host = replaceBetween(host, "  const params = new URLSearchParams(location.searc
   if (!session || !L.SESSION_RE.test(session)) newSession();
   function newSession(){ session = L.randomId(10); try{ localStorage.setItem(HOST_KEY, session); }catch(e){} }
   let client = null, brokerIx = 0;
-  const participantLink = () => new URL("./", location.href).href + "?s=" + session + "&b=" + brokerIx;
+  const participantLink = () => new URL("formular.html", location.href).href + "?s=" + session + "&b=" + brokerIx;
 
   const results = new Map(); // phone id -> {verdict, bracket}
   const seen = new Map();    // phone id -> last heartbeat (ms)
@@ -228,6 +228,8 @@ host = replaceBetween(host, `  $("#yes").addEventListener("click", async ()=>{`,
     $("#confirm").hidden = true; $("#reset").hidden = false;
   });
 `, "host reset handler");
-write("docs/prezentare.html", host);
+write("docs/index.html", host); // the short link: …/simulator-avere-neta/
+// Old bookmarks to prezentare.html land on the host screen.
+write("docs/prezentare.html", `<!doctype html><meta charset="utf-8"><title>Simulator Avere Netă</title><meta http-equiv="refresh" content="0; url=./"><a href="./">Deschide ecranul de prezentare</a>\n`);
 
 console.log("docs/ generat: index.html, prezentare.html");

@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Simulator Avere Netă</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one centred wizard column; Acumulări and Datorii sit side by side like the slide table, stacked on phones.
+   Signature: the blue→teal→green spectrum band from the training slides, reused as the scale that places net worth against the reference. */
+:root{
+  --bg:#F1F4F9; --surface:#FFFFFF; --surface-2:#F6F8FC; --ink:#0B1F45; --muted:#5A6A86; --line:#DCE3EE;
+  --blue:#0B7FD0; --teal:#08999A; --green:#119A4C; --warn:#C94B17;
+  --blue-soft:#E3F1FC; --green-soft:#E1F4E8; --warn-soft:#FCEBE2;
+  --panel:#0B1F45; --panel-2:#142B5C; --panel-fg:#EAF1FB; --panel-muted:#9FB2D2; --panel-line:#25417C;
+  --on-ink:#FFFFFF;
+  --shadow:0 1px 2px rgba(11,31,69,.05),0 10px 30px rgba(11,31,69,.07);
+  --spectrum:linear-gradient(90deg,#0B9BE0 0%,#06A5A6 52%,#13B04E 100%);
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Public Sans","Segoe UI",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#06112A; --surface:#0C1A37; --surface-2:#0F2043; --ink:#E6EDF8; --muted:#93A4C3; --line:#1D325C;
+  --blue:#4AB4F0; --teal:#2DC7C0; --green:#3DCF80; --warn:#FF8A55;
+  --blue-soft:#0E2A4A; --green-soft:#0E3122; --warn-soft:#3A1D12;
+  --panel:#102756; --panel-2:#17336D; --panel-fg:#EAF1FB; --panel-muted:#A3B5D6; --panel-line:#2B4A8C;
+  --on-ink:#06112A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#06112A; --surface:#0C1A37; --surface-2:#0F2043; --ink:#E6EDF8; --muted:#93A4C3; --line:#1D325C;
+  --blue:#4AB4F0; --teal:#2DC7C0; --green:#3DCF80; --warn:#FF8A55;
+  --blue-soft:#0E2A4A; --green-soft:#0E3122; --warn-soft:#3A1D12;
+  --panel:#102756; --panel-2:#17336D; --panel-fg:#EAF1FB; --panel-muted:#A3B5D6; --panel-line:#2B4A8C;
+  --on-ink:#06112A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+p{margin:0}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- header ---------- */
+.band{height:6px;background:var(--spectrum)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{padding-block:28px 22px;display:flex;gap:20px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.brand-mark{width:28px;height:28px;border-radius:8px;background:var(--spectrum);display:grid;place-items:center}
+.brand-mark svg{width:16px;height:16px}
+.brand b{font-family:var(--f-display);font-size:15px;letter-spacing:.01em}
+.top h1{font-size:clamp(28px,4.4vw,44px);font-weight:800;line-height:1.05}
+.top h1 em{font-style:normal;background:var(--spectrum);-webkit-background-clip:text;background-clip:text;color:transparent}
+.top .sub{color:var(--muted);margin-top:8px;max-width:58ch}
+.formula{display:flex;gap:8px;flex-wrap:wrap;font-size:13px}
+.formula span{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 12px;white-space:nowrap}
+.formula b{font-weight:600}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:minmax(0,1fr);max-width:920px;gap:24px;align-items:start;padding-block:0 48px}
+.top{max-width:920px}
+
+
+.wizard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-width:0}
+.stepper{list-style:none;margin:0;padding:10px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;border-bottom:1px solid var(--line)}
+.stepper button{width:100%;display:flex;align-items:center;gap:10px;padding:10px 10px;border:0;background:transparent;border-radius:10px;cursor:pointer;text-align:left;color:var(--muted)}
+.stepper button:hover:not(:disabled){background:var(--surface-2)}
+.stepper button:disabled{cursor:not-allowed;opacity:.55}
+.stepper .n{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-num);font-size:12.5px;font-weight:600;border:1.5px solid var(--line);background:var(--surface)}
+.stepper .t{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stepper button[aria-current="step"]{background:var(--blue-soft);color:var(--ink)}
+.stepper button[aria-current="step"] .n{background:var(--blue);border-color:var(--blue);color:var(--on-ink)}
+.stepper button.done .n{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+@media (max-width:640px){.stepper .t{display:none}.stepper button{justify-content:center}.stepper button[aria-current="step"] .t{display:block}.stepper{grid-template-columns:repeat(4,auto);justify-content:space-between}}
+
+.step{padding:28px clamp(18px,3vw,36px) 8px;animation:in .35s ease both}
+@keyframes in{from{opacity:.001;transform:translateY(6px)}to{opacity:1;transform:none}}
+.step-head{display:grid;gap:6px;margin-bottom:22px}
+.step-head h2{font-size:clamp(22px,2.6vw,28px);font-weight:700}
+.step-head .lede{color:var(--muted);max-width:62ch}
+
+.nav{display:flex;justify-content:space-between;gap:12px;padding:18px clamp(18px,3vw,36px) 24px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--surface);transition:transform .12s ease,background .15s}
+.btn:hover{background:var(--surface-2)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+.btn.primary:hover{background:var(--ink);opacity:.92}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--blue);padding-inline:6px}
+.btn.ghost:hover{text-decoration:underline;background:transparent}
+.btn svg{width:16px;height:16px}
+
+/* ---------- step 1: profile ---------- */
+.profile{display:grid;gap:22px}
+.lbl{display:block;font-weight:600;font-size:14px;margin-bottom:8px}
+.text-in{width:100%;max-width:420px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.text-in:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px var(--blue-soft)}
+.age-row{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.age-box{display:flex;align-items:baseline;gap:8px;border:1px solid var(--line);border-radius:12px;padding:6px 16px;background:var(--surface-2)}
+.age-box:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.age-box input{width:92px;border:0;background:transparent;font-family:var(--f-display);font-size:46px;font-weight:800;line-height:1.1;outline:none;-moz-appearance:textfield}
+.age-box input::-webkit-outer-spin-button,.age-box input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.age-box span{color:var(--muted);font-weight:600}
+.age-slider{flex:1 1 220px;min-width:0}
+input[type=range]{width:100%;accent-color:var(--blue)}
+.ticks{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-family:var(--f-num)}
+.coef-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:4px}
+.coef-cell{border:1px solid var(--line);border-radius:10px;padding:10px 10px 9px;background:var(--surface);display:grid;gap:2px;transition:all .25s ease}
+.coef-cell .c{font-family:var(--f-num);font-size:20px;font-weight:600}
+.coef-cell .r{font-size:12px;color:var(--muted);line-height:1.3}
+.coef-cell.on{border-color:var(--blue);background:var(--blue-soft);box-shadow:inset 0 -3px 0 var(--blue)}
+@media (max-width:560px){.coef-strip{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--surface-2);gap:3px}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.seg span{display:block;padding:7px 16px;border-radius:8px;font-weight:600;font-size:13.5px;color:var(--muted)}
+.seg input:checked+span{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.seg input:focus-visible+span{outline:2px solid var(--blue)}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+.err{color:var(--warn);font-size:13px;font-weight:600;margin-top:8px}
+
+/* ---------- money fields ---------- */
+.fields{display:grid;gap:10px}
+.field{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,220px);gap:16px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);transition:border-color .15s,background .15s}
+.field:focus-within{border-color:var(--blue);background:var(--surface-2)}
+.field.filled{border-left:3px solid var(--fieldc,var(--blue))}
+.f-label{min-width:0}
+.f-label b{display:block;font-weight:600;font-size:14.5px}
+.f-label small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35;margin-top:1px}
+.f-input{display:flex;align-items:center;border:1px solid var(--line);border-radius:9px;background:var(--surface);overflow:hidden}
+.f-input input{flex:1;min-width:0;border:0;background:transparent;padding:10px 10px;text-align:right;font-family:var(--f-num);font-size:15px;font-variant-numeric:tabular-nums;outline:none}
+.f-input .cur{padding:0 10px;color:var(--muted);font-size:12px;font-weight:600;border-left:1px solid var(--line);align-self:stretch;display:grid;place-items:center;background:var(--surface-2)}
+@media (max-width:520px){.field{grid-template-columns:minmax(0,1fr)}}
+.bs-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:760px){.bs-cols{grid-template-columns:minmax(0,1fr)}}
+.bs-col{min-width:0;display:grid;gap:10px;align-content:start}
+.bs-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 14px;border-radius:10px;background:var(--blue-soft);font-family:var(--f-display);font-weight:700;font-size:17px}
+.bs-head .num{font-size:16px}
+.fields.stack .field{grid-template-columns:minmax(0,1fr);gap:8px}
+.fields.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fields.two .field{grid-template-columns:minmax(0,1fr)}
+.fields.two .f-input{max-width:none}
+@media (max-width:700px){.fields.two{grid-template-columns:minmax(0,1fr)}}
+.total-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:16px;padding:14px 16px;border-radius:12px;background:var(--surface-2);border:1px dashed var(--line);flex-wrap:wrap}
+.total-row .num{font-size:22px;font-weight:600}
+.subhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:22px 0 10px;flex-wrap:wrap}
+.subhead h3{font-size:16px;font-weight:700}
+.tip{display:flex;gap:12px;align-items:flex-start;margin-top:16px;padding:14px 16px;border-radius:12px;background:var(--blue-soft);font-size:14px}
+.tip svg{flex:none;width:20px;height:20px;color:var(--blue);margin-top:1px}
+.tip b{font-weight:700}
+
+/* ---------- ledger ---------- */
+.ledger{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));background:var(--panel);color:var(--panel-fg);border-radius:var(--r);padding:22px 22px 18px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.ledger::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--spectrum)}
+.ledger .eyebrow{color:var(--panel-muted)}
+.l-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.who{font-family:var(--f-display);font-size:19px;font-weight:700;margin:8px 0 14px;overflow-wrap:anywhere}
+.who small{display:block;font-family:var(--f-body);font-size:13px;font-weight:500;color:var(--panel-muted)}
+.lrows{margin:0;padding:12px 0;border-top:1px solid var(--panel-line);display:grid;gap:7px}
+.lrow{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:13.5px}
+.lrow dt{color:var(--panel-muted)}
+.lrow dd{margin:0;font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
+.lrow.total dt{color:var(--panel-fg);font-weight:600}
+.lrow.total dd{font-size:17px;font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--panel-2);color:var(--panel-fg);white-space:nowrap}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--panel-muted)}
+.pill.acc i{background:#3DD68C}
+.pill.spend i{background:#FF8A55}
+.mini{margin-top:6px;padding-top:14px;border-top:1px solid var(--panel-line)}
+.mini-track{position:relative;height:10px;border-radius:99px;background:var(--panel-2);margin:10px 0 8px;overflow:visible}
+.mini-fill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--spectrum);width:0;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.mini-ref{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--panel-fg);left:66.66%}
+.mini-cap{display:flex;justify-content:space-between;font-size:12px;color:var(--panel-muted)}
+.l-note{font-size:12px;color:var(--panel-muted);margin-top:14px}
+
+/* ---------- result ---------- */
+.verdict{position:relative;border-radius:var(--r);padding:26px 26px 24px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:center;overflow:hidden;border:1px solid var(--line)}
+.verdict[data-kind="acc"]{background:var(--green-soft)}
+.verdict[data-kind="spend"]{background:var(--warn-soft)}
+.v-badge{width:72px;height:72px;border-radius:20px;display:grid;place-items:center;color:var(--on-ink)}
+.verdict[data-kind="acc"] .v-badge{background:var(--green)}
+.verdict[data-kind="spend"] .v-badge{background:var(--warn)}
+.v-badge svg{width:38px;height:38px}
+.verdict h2{font-size:clamp(26px,3.6vw,38px);font-weight:800;line-height:1.05;margin:4px 0 8px}
+.verdict[data-kind="acc"] h2{color:var(--green)}
+.verdict[data-kind="spend"] h2{color:var(--warn)}
+.verdict p.v-text{max-width:60ch}
+@media (max-width:520px){.verdict{grid-template-columns:minmax(0,1fr)}.v-badge{width:56px;height:56px;border-radius:16px}}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:14px 14px 12px;background:var(--surface);min-width:0}
+.kpi .k-val{font-family:var(--f-num);font-size:clamp(17px,2vw,22px);font-weight:600;margin-top:4px;overflow-wrap:anywhere}
+.kpi .k-sub{font-size:12px;color:var(--muted)}
+.kpi.pos .k-val{color:var(--green)} .kpi.neg .k-val{color:var(--warn)}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.card{border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--surface);min-width:0}
+.card h3{font-size:16px;font-weight:700;margin-bottom:12px}
+.r-section{margin-top:14px}
+.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+@media (max-width:760px){.grid-2{grid-template-columns:minmax(0,1fr)}}
+
+.scale{position:relative;padding:44px 4px 40px}
+.scale-track{position:relative;height:16px;border-radius:99px;overflow:hidden;display:flex}
+.scale-track .z-spend{background:linear-gradient(90deg,var(--warn-soft),var(--warn-soft));border:1px solid var(--line);border-right:0;border-radius:99px 0 0 99px}
+.scale-track .z-acc{background:var(--spectrum);opacity:.9;border-radius:0 99px 99px 0}
+.mk{position:absolute;top:0;bottom:0;transform:translateX(-50%);transition:left .9s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.mk-ref{top:30px;bottom:auto;height:36px}
+.mk-ref .line{width:2px;height:36px;background:var(--ink)}
+.mk-ref .tag{position:absolute;top:40px;white-space:nowrap;font-size:12px;font-weight:600;color:var(--ink)}
+.mk-you{top:2px;bottom:auto}
+.mk-you .tag{white-space:nowrap;font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px;background:var(--ink);color:var(--on-ink)}
+.mk-you .dot{width:18px;height:18px;border-radius:50%;background:var(--surface);border:4px solid var(--ink);margin-top:17px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.scale-legend{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.scale-legend span{display:inline-flex;align-items:center;gap:6px}
+.scale-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+.calc{display:grid;gap:0;font-size:14px}
+.calc div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.calc div:last-child{border-bottom:0}
+.calc dt{color:var(--muted)} .calc dd{margin:0;font-family:var(--f-num);text-align:right}
+.calc .strong dt{color:var(--ink);font-weight:700} .calc .strong dd{font-weight:600}
+.calc .sep{border-top:2px solid var(--ink)}
+
+table.coef{width:100%;border-collapse:collapse;font-size:14px}
+table.coef th{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:600;padding:0 8px 8px}
+table.coef td{padding:8px;border-top:1px solid var(--line)}
+table.coef td.c{font-family:var(--f-num);text-align:right;font-weight:600}
+table.coef th:last-child{text-align:right}
+table.coef tr.on td{background:var(--blue-soft);font-weight:700}
+table.coef tr.on td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+.src{font-size:12px;color:var(--muted);margin-top:10px}
+
+.bars{display:grid;gap:10px}
+.bar-row{display:grid;gap:4px;font-size:13px}
+.bar-row .top-l{display:flex;justify-content:space-between;gap:10px}
+.bar-row .top-l span:last-child{font-family:var(--f-num);color:var(--muted);white-space:nowrap}
+.bar{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;width:0;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.empty{color:var(--muted);font-size:13.5px}
+
+.insights{display:grid;gap:8px}
+.ins{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:14px}
+.ins .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:800;font-size:13px}
+.ins.good .ic{background:var(--green-soft);color:var(--green)}
+.ins.warn .ic{background:var(--warn-soft);color:var(--warn)}
+.ins.info .ic{background:var(--blue-soft);color:var(--blue)}
+.ins b{display:block}
+.ins span{color:var(--muted)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2)}
+.chip.used{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+.act-col{display:grid;gap:10px;align-content:start}
+.act-col p{font-size:13.5px;color:var(--muted)}
+.result-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+
+.sample{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;border:1px dashed var(--blue);background:var(--blue-soft);font-size:13.5px;margin-bottom:20px}
+footer{color:var(--muted);font-size:12px;padding-block:0 32px}
+
+.sent{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13.5px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.sent i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.sent.ok i{background:var(--green)} .sent.bad i{background:var(--warn)}
+.live-dot{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto}
+.live-dot i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.live-dot.on i{background:var(--green);box-shadow:0 0 0 0 var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(17,154,76,.5)}70%{box-shadow:0 0 0 8px rgba(17,154,76,0)}100%{box-shadow:0 0 0 0 rgba(17,154,76,0)}}
+.other-tab{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.other-box{max-width:420px;display:grid;gap:14px;text-align:center;justify-items:center}
+.other-box h2{font-size:24px;font-weight:800}
+.other-box p{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script src="live.js"></script>
+</head>
+<body>
+
+<div class="other-tab" id="otherTab" role="alertdialog" aria-labelledby="otherTabTitle" hidden>
+  <div class="other-box">
+    <h2 id="otherTabTitle">Formularul e deschis în altă filă</h2>
+    <p>Ai scanat codul încă o dată, așa că formularul continuă în fila nouă, cu datele tale păstrate. Poți închide această filă.</p>
+    <button type="button" class="btn primary" id="takeOver">Continuă aici</button>
+  </div>
+</div>
+<div class="band" aria-hidden="true"></div>
+<header class="wrap top">
+  <div>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/></svg></span>
+      <b>Bilanț personal</b>
+    </div>
+    <h1>Ești <em>acumulator</em> sau cheltuitor?</h1>
+    <p class="sub">Simulatorul calculează averea ta netă și o compară cu valoarea de referință pentru vârsta ta. Toate sumele sunt anuale și în aceeași monedă.</p>
+  </div>
+  <div class="formula" aria-label="Formule">
+    <span><b>Avere netă</b> = Acumulări − Datorii</span>
+    <span><b>Referință</b> = Venit anual brut × Coeficient vârstă</span>
+  </div>
+</header>
+
+<main class="wrap layout">
+  <section class="wizard" aria-label="Simulator">
+    <ol class="stepper" id="stepper">
+      <li><button type="button" data-go="0"><span class="n">1</span><span class="t">Vârsta</span></button></li>
+      <li><button type="button" data-go="1"><span class="n">2</span><span class="t">Acumulări și datorii</span></button></li>
+      <li><button type="button" data-go="2"><span class="n">3</span><span class="t">Salariu lunar</span></button></li>
+      <li><button type="button" data-go="3"><span class="n">4</span><span class="t">Rezultat</span></button></li>
+    </ol>
+
+    <!-- STEP 1 -->
+    <section class="step" data-step="0">
+      <div class="sample" id="sampleBar">
+        <span>Vrei să vezi cum funcționează? Încarcă exemplul de calcul din prezentare (40 de ani, salariu lunar 4.167, adică aprox. 50.000 pe an).</span>
+        <button type="button" class="btn" id="loadSample">Încarcă exemplul</button>
+      </div>
+      <header class="step-head">
+        <p class="eyebrow">Pasul 1 din 3</p>
+        <h2>Câți ani ai?</h2>
+        <p class="lede">Vârsta stabilește coeficientul cu care se calculează valoarea de referință. Cu cât înaintezi în vârstă, cu atât averea așteptată este mai mare.</p>
+      </header>
+      <div class="profile">
+        <div>
+          <label class="lbl" for="pname">Numele participantului <span class="hint">(opțional)</span></label>
+          <input class="text-in" id="pname" type="text" autocomplete="off" placeholder="ex. Ioana">
+        </div>
+        <div>
+          <label class="lbl" for="age">Vârsta</label>
+          <div class="age-row">
+            <div class="age-box"><input id="age" type="number" min="18" max="100" inputmode="numeric" placeholder="—" aria-describedby="ageErr"><span>ani</span></div>
+            <div class="age-slider">
+              <input id="ageRange" type="range" min="18" max="80" value="35" aria-label="Alege vârsta">
+              <div class="ticks"><span>18</span><span>25</span><span>30</span><span>40</span><span>50</span><span>60</span><span>80</span></div>
+            </div>
+          </div>
+          <p class="err" id="ageErr" hidden>Introdu o vârstă între 18 și 100 de ani.</p>
+        </div>
+        <div>
+          <span class="lbl">Coeficient în funcție de vârstă</span>
+          <div class="coef-strip" id="coefStrip"></div>
+        </div>
+        <div>
+          <span class="lbl" id="curLbl">Moneda</span>
+          <div class="seg" role="radiogroup" aria-labelledby="curLbl">
+            <label><input type="radio" name="cur" id="cur-ron" value="RON" checked><span>RON</span></label>
+            <label><input type="radio" name="cur" id="cur-eur" value="EUR"><span>EUR</span></label>
+            <label><input type="radio" name="cur" id="cur-usd" value="USD"><span>USD</span></label>
+          </div>
+          <p class="hint">Convertește toate sumele în aceeași monedă înainte să le introduci.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: the "Valori anuale" table, Acumulări and Datorii side by side -->
+    <section class="step" data-step="1" hidden>
+      <header class="step-head">
+        <p class="eyebrow">Pasul 2 din 3</p>
+        <h2>Acumulări și datorii</h2>
+        <p class="lede">Valori anuale, toate în aceeași monedă. În stânga ce deții, în dreapta ce datorezi. Lasă gol ce nu se aplică.</p>
+      </header>
+      <div class="bs-cols">
+        <div class="bs-col">
+          <div class="bs-head"><span>Acumulări</span><span class="num" id="assetTotal">0</span></div>
+          <div class="fields stack" id="assetFields"></div>
+        </div>
+        <div class="bs-col">
+          <div class="bs-head"><span>Datorii</span><span class="num" id="debtTotal">0</span></div>
+          <div class="fields stack" id="debtFields"></div>
+        </div>
+      </div>
+      <div class="total-row"><span><b>Averea netă</b> <span class="hint">= Acumulări − Datorii</span></span><span class="num" id="netTotal">0</span></div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="step" data-step="2" hidden>
+      <header class="step-head">
+        <p class="eyebrow">Pasul 3 din 3</p>
+        <h2>Salariul lunar</h2>
+        <p class="lede">Introdu salariul lunar brut. Aplicația îl înmulțește cu 12 luni pentru venitul anual, apoi cu coeficientul vârstei pentru valoarea de referință.</p>
+      </header>
+      <div class="fields" id="incomeMain"></div>
+      <p class="err" id="incErr" hidden>Introdu salariul lunar ca să putem calcula valoarea de referință.</p>
+      <div class="total-row"><span><b>Venit anual</b> <span class="hint" id="annualFormula">= Salariul lunar × 12</span></span><span class="num" id="annualTotal">0</span></div>
+      <div class="total-row" style="margin-top:10px"><span><b>Referința</b> <span class="hint" id="refFormula">= Venit anual × Coeficient</span></span><span class="num" id="refTotal">—</span></div>
+    </section>
+
+    <!-- STEP 4: result -->
+    <section class="step" data-step="3" hidden>
+      <div class="verdict" id="verdict" data-kind="acc">
+        <div class="v-badge" id="vBadge" aria-hidden="true"></div>
+        <div>
+          <p class="eyebrow" id="vWho">Rezultat</p>
+          <h2 id="vTitle">Acumulator de avere</h2>
+          <p class="v-text" id="vText"></p>
+        </div>
+      </div>
+      <p class="sent" id="sentNote" hidden><i></i><span id="sentTxt"></span></p>
+
+      <div class="kpis">
+        <div class="kpi"><p class="eyebrow">Avere netă</p><p class="k-val" id="kNet">0</p><p class="k-sub">Acumulări − Datorii</p></div>
+        <div class="kpi"><p class="eyebrow">Referință</p><p class="k-val" id="kRef">0</p><p class="k-sub" id="kRefSub">Venit × coeficient</p></div>
+        <div class="kpi" id="kDiffBox"><p class="eyebrow">Diferență</p><p class="k-val" id="kDiff">0</p><p class="k-sub">Avere netă − Referință</p></div>
+        <div class="kpi" id="kPctBox"><p class="eyebrow">Grad de atingere</p><p class="k-val" id="kPct">0%</p><p class="k-sub">din valoarea de referință</p></div>
+      </div>
+
+      <div class="card r-section">
+        <h3>Unde te afli față de referință</h3>
+        <div class="scale" id="scale">
+          <div class="scale-track"><div class="z-spend" id="zSpend"></div><div class="z-acc" id="zAcc"></div></div>
+          <div class="mk mk-ref" id="mkRef"><div class="line"></div><div class="tag" id="mkRefTag">Referință</div></div>
+          <div class="mk mk-you" id="mkYou"><div class="tag" id="mkYouTag">Averea ta</div><div class="dot"></div></div>
+        </div>
+        <div class="scale-legend"><span><i style="background:var(--warn-soft);border:1px solid var(--line)"></i>Zona cheltuitorului</span><span><i style="background:var(--spectrum)"></i>Zona acumulatorului de avere</span></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Calculul pas cu pas</h3>
+          <dl class="calc" id="calc"></dl>
+        </div>
+        <div class="card">
+          <h3>Lista coeficienților în funcție de vârstă</h3>
+          <table class="coef" id="coefTable"><thead><tr><th>Vârsta</th><th>Coeficient</th></tr></thead><tbody></tbody></table>
+          <p class="src">Sursa: literatura americană, cartea „Milionarul de lângă noi”.</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card"><h3>Structura acumulărilor</h3><div class="bars" id="assetBars"></div></div>
+        <div class="card"><h3>Structura datoriilor</h3><div class="bars" id="debtBars"></div></div>
+      </div>
+
+      <div class="card r-section">
+        <h3>Ce arată cifrele tale</h3>
+        <div class="insights" id="insights"></div>
+      </div>
+
+      <div class="result-actions">
+        <button type="button" class="btn" data-go="1">Modifică datele</button>
+        <button type="button" class="btn primary" id="newPart">Participant nou</button>
+      </div>
+    </section>
+
+    <div class="nav" id="nav">
+      <button type="button" class="btn" id="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Înapoi</button>
+      <button type="button" class="btn primary" id="next">Continuă<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">Prototip educațional. Rezultatul este orientativ și nu reprezintă consultanță financiară.</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- data from the training slides ---------- */
+  const ASSETS = [
+    {id:"a_liq",  label:"Bani lichizi",            hint:"Conturi curente, economii, depozite", color:"var(--blue)"},
+    {id:"a_inv",  label:"Investiții",              hint:"Acțiuni, obligațiuni, fonduri mutuale, fonduri de pensii, titluri de stat", color:"var(--teal)"},
+    {id:"a_re",   label:"Proprietăți imobiliare",  hint:"Casă, apartament, teren", color:"var(--green)"},
+    {id:"a_val",  label:"Bunuri de valoare",       hint:"Mașini, bijuterii, electronice de lux, obiecte de valoare", color:"#7A8CF0"},
+    {id:"a_cry",  label:"Criptomonede",            hint:"Valoarea de azi a portofoliului crypto", color:"#C08A1E"},
+    {id:"a_biz",  label:"Afaceri",                 hint:"Valoarea părților sociale / acțiunilor în firme proprii", color:"#B05FC9"}
+  ];
+  const DEBTS = [
+    {id:"d_loan", label:"Soldul creditelor",       hint:"Ipotecar, de nevoi personale, auto, descoperit de cont", color:"var(--warn)"},
+    {id:"d_card", label:"Soldul cardurilor de credit", hint:"Datoriile neplătite", color:"#E0892B"},
+    {id:"d_oth",  label:"Alte datorii",            hint:"Împrumuturi de la prieteni sau familie", color:"#C9A227"},
+    {id:"d_val",  label:"Bunuri de valoare",       hint:"Mașini, bijuterii, electronice de lux", color:"#B8577A"},
+    {id:"d_cry",  label:"Criptomonede",            hint:"Sume datorate legate de criptomonede", color:"#8E6BB8"},
+    {id:"d_biz",  label:"Afaceri",                 hint:"Sume datorate legate de afaceri", color:"#6C7A93"}
+  ];
+  const INCOME_MAIN = {id:"i_sal", label:"Salariul lunar brut", hint:"Suma pe o lună. Aplicația o înmulțește cu 12.", color:"var(--blue)"};
+  const MONTHS = 12;
+
+  // Age coefficients from the slide. The slide lists ages, so each age is read as the upper end of a bracket.
+  const BRACKETS = [
+    {max:25,  coef:0.5, label:"Până în 25 ani", range:"≤ 25"},
+    {max:30,  coef:1,   label:"La 30 de ani",   range:"26–30"},
+    {max:40,  coef:3,   label:"La 40 de ani",   range:"31–40"},
+    {max:60,  coef:6,   label:"La 50 de ani",   range:"41–60"},
+    {max:Infinity, coef:9, label:"Peste 60 ani", range:"61+"}
+  ];
+  const SAMPLE = {name:"Exemplu din prezentare", age:40, cur:"RON", v:{a_liq:2000,a_inv:10000,a_re:200000,a_val:15000,d_loan:60000,d_card:1000,i_sal:4167}};
+
+  /* ---------- helpers ---------- */
+  const $ = s => document.querySelector(s);
+  const nf = new Intl.NumberFormat("ro-RO",{maximumFractionDigits:0});
+  const nf1 = new Intl.NumberFormat("ro-RO",{maximumFractionDigits:1});
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let cur = "RON";
+  const money = n => (n<0?"−":"") + nf.format(Math.abs(Math.round(n))) + " " + cur;
+  const bracketFor = age => BRACKETS.find(b => age <= b.max);
+  const val = id => { const el = document.getElementById(id); return el ? (Number(el.value.replace(/\D/g,"")) || 0) : 0; };
+  const sum = list => list.reduce((s,x)=>s+val(x.id),0);
+
+  function fieldHTML(it){
+    return `<label class="field" for="${it.id}" style="--fieldc:${it.color||"var(--blue)"}">
+      <span class="f-label"><b>${it.label}</b><small>${it.hint}</small></span>
+      <span class="f-input"><input id="${it.id}" type="text" inputmode="numeric" autocomplete="off" placeholder="0"><span class="cur" data-cur>RON</span></span>
+    </label>`;
+  }
+  $("#assetFields").innerHTML = ASSETS.map(fieldHTML).join("");
+  $("#debtFields").innerHTML = DEBTS.map(fieldHTML).join("");
+  $("#incomeMain").innerHTML = fieldHTML(INCOME_MAIN);
+  $("#coefStrip").innerHTML = BRACKETS.map((b,i)=>`<div class="coef-cell" data-b="${i}"><span class="c">${nf1.format(b.coef)}</span><span class="r">${b.label}<br>${b.range} ani</span></div>`).join("");
+  $("#coefTable tbody").innerHTML = BRACKETS.map((b,i)=>`<tr data-b="${i}"><td>${b.label} <span class="hint">(${b.range})</span></td><td class="c">${nf1.format(b.coef)}</td></tr>`).join("");
+
+  // Live thousands formatting that keeps the caret next to the digit being typed.
+  document.querySelectorAll(".f-input input").forEach(inp=>{
+    inp.addEventListener("input",()=>{
+      const pos = inp.selectionStart || 0;
+      const digitsBefore = inp.value.slice(0,pos).replace(/\D/g,"").length;
+      const digits = inp.value.replace(/\D/g,"").replace(/^0+(?=\d)/,"").slice(0,13);
+      inp.value = digits ? nf.format(Number(digits)) : "";
+      let p = 0, seen = 0;
+      while (p < inp.value.length && seen < digitsBefore){ if (/\d/.test(inp.value[p])) seen++; p++; }
+      try { inp.setSelectionRange(p,p); } catch(e){}
+      usingSample = false;
+      update();
+    });
+  });
+
+  /* ---------- state & navigation ---------- */
+  let step = 0, maxVisited = 0;
+  const steps = [...document.querySelectorAll(".step")];
+  const ageIn = $("#age"), ageRange = $("#ageRange");
+
+  function ageVal(){ const a = parseInt(ageIn.value,10); return Number.isFinite(a) ? a : null; }
+  function ageOk(){ const a = ageVal(); return a !== null && a >= 18 && a <= 100; }
+  function incomeTotal(){ return val(INCOME_MAIN.id) * MONTHS; } // annual income = monthly salary × 12
+
+  function validate(s){
+    if (s === 0){ const ok = ageOk(); $("#ageErr").hidden = ok; if(!ok) ageIn.focus(); return ok; }
+    if (s === 2){ const ok = incomeTotal() > 0; $("#incErr").hidden = ok; if(!ok) document.getElementById(INCOME_MAIN.id).focus(); return ok; }
+    return true;
+  }
+
+  function go(n){
+    if (n === step) return;
+    if (n > step){ for (let s = step; s < n; s++){ if (!validate(s)){ show(s); return; } } }
+    show(n);
+  }
+  function show(n){
+    step = n; maxVisited = Math.max(maxVisited, n);
+    steps.forEach((el,i)=> el.hidden = i !== n);
+    document.querySelectorAll("#stepper button").forEach((b,i)=>{
+      b.toggleAttribute("aria-current", i === n); if (i === n) b.setAttribute("aria-current","step");
+      b.classList.toggle("done", i < maxVisited && i !== n);
+    });
+    $("#back").hidden = n === 0 || n === 3;
+    $("#next").hidden = n === 3;
+    $("#nav").hidden = n === 3;
+    $("#next").firstChild.textContent = n === 2 ? "Trimite și vezi rezultatul" : "Continuă";
+    if (n === 3){ renderResult(); submitResult(); }
+    const top = document.querySelector(".wizard").getBoundingClientRect().top;
+    if (top < 0) window.scrollBy({top: top - 16, behavior: reduce ? "auto" : "smooth"});
+    save();
+  }
+  document.querySelectorAll("[data-go]").forEach(b=> b.addEventListener("click",()=> go(+b.dataset.go)));
+  $("#next").addEventListener("click",()=> go(step+1));
+  $("#back").addEventListener("click",()=> show(Math.max(0,step-1)));
+
+  ageIn.addEventListener("input",()=>{ usingSample = false; if (ageOk()) { ageRange.value = ageVal(); $("#ageErr").hidden = true; } update(); });
+  ageRange.addEventListener("input",()=>{ usingSample = false; ageIn.value = ageRange.value; $("#ageErr").hidden = true; update(); });
+  $("#pname").addEventListener("input", update);
+  document.querySelectorAll('input[name="cur"]').forEach(r=> r.addEventListener("change",()=>{ cur = r.value; update(); }));
+
+  /* ---------- live totals on the form ---------- */
+  function compute(){
+    const assets = sum(ASSETS), debts = sum(DEBTS), income = incomeTotal();
+    const age = ageOk() ? ageVal() : null;
+    const br = age !== null ? bracketFor(age) : null;
+    const net = assets - debts;
+    const ref = br ? income * br.coef : null;
+    const ready = br && income > 0;
+    return {assets, debts, net, income, age, br, ref, ready, acc: ready ? net >= ref : null};
+  }
+
+  function update(){
+    const c = compute();
+    document.querySelectorAll("[data-cur]").forEach(e=> e.textContent = cur);
+    document.querySelectorAll(".f-input input").forEach(i=> i.closest(".field").classList.toggle("filled", !!i.value));
+    $("#assetTotal").textContent = money(c.assets);
+    $("#debtTotal").textContent = money(c.debts);
+    $("#netTotal").textContent = money(c.net);
+    $("#annualTotal").textContent = money(c.income);
+    $("#annualFormula").textContent = `= ${money(val(INCOME_MAIN.id))} × ${MONTHS} luni`;
+    $("#refTotal").textContent = c.ref !== null ? money(c.ref) : "—";
+    $("#refFormula").textContent = c.br ? `= ${money(c.income)} × ${nf1.format(c.br.coef)} (coeficient la ${c.age} ani)` : "= Venit anual × Coeficient (completează vârsta)";
+    if (c.income > 0) $("#incErr").hidden = true;
+
+    document.querySelectorAll("#coefStrip .coef-cell").forEach((el,i)=> el.classList.toggle("on", !!c.br && BRACKETS[i] === c.br));
+
+    if (step === 3 && c.ready) renderResult(true);
+    save();
+  }
+
+  /* ---------- result ---------- */
+  const ICON_ACC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>';
+  const ICON_SPEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></svg>';
+
+  function countTo(el, to, fmt, quiet){
+    if (reduce || quiet){ el.textContent = fmt(to); return; }
+    const t0 = performance.now(), dur = 900;
+    // Background tabs pause animation frames; make sure the final value lands anyway.
+    setTimeout(()=> el.textContent = fmt(to), dur + 150);
+    (function f(t){ const k = Math.min(1,(t-t0)/dur), e = 1-Math.pow(1-k,3); el.textContent = fmt(to*e); if (k<1) requestAnimationFrame(f); })(t0);
+  }
+
+  function bars(el, list, total){
+    const rows = list.map(x=>({...x, v:val(x.id)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+    if (!rows.length){ el.innerHTML = '<p class="empty">Nimic introdus.</p>'; return; }
+    el.innerHTML = rows.map(r=>`<div class="bar-row"><div class="top-l"><span>${r.label}</span><span>${money(r.v)} · ${nf.format(Math.round(r.v/total*100))}%</span></div><div class="bar"><i data-w="${r.v/total*100}" style="background:${r.color}"></i></div></div>`).join("");
+    requestAnimationFrame(()=> el.querySelectorAll("i").forEach(i=> i.style.width = i.dataset.w + "%"));
+  }
+
+  function renderResult(quiet){
+    const c = compute();
+    if (!c.ready) return;
+    const name = $("#pname").value.trim();
+    const gap = c.net - c.ref;
+    const pct = c.ref > 0 ? c.net / c.ref * 100 : 0;
+
+    const v = $("#verdict");
+    v.dataset.kind = c.acc ? "acc" : "spend";
+    $("#vBadge").innerHTML = c.acc ? ICON_ACC : ICON_SPEND;
+    $("#vWho").textContent = (name ? name + " · " : "") + c.age + " ani · profil financiar";
+    $("#vTitle").textContent = c.acc ? "Acumulator de avere" : "Cheltuitor";
+    $("#vText").textContent = c.acc
+      ? `Averea netă de ${money(c.net)} depășește valoarea de referință pentru vârsta ta (${money(c.ref)}) cu ${money(gap)}. Transformi o parte bună din venit în avere.`
+      : `Averea netă de ${money(c.net)} este sub valoarea de referință pentru vârsta ta (${money(c.ref)}). Îți lipsesc ${money(-gap)}, adică echivalentul a ${nf1.format(-gap / c.income)} ani de venit brut.`;
+
+    countTo($("#kNet"), c.net, money, quiet);
+    countTo($("#kRef"), c.ref, money, quiet);
+    countTo($("#kDiff"), gap, n => (n>0?"+":"") + money(n), quiet);
+    countTo($("#kPct"), pct, n => nf.format(Math.round(n)) + "%", quiet);
+    $("#kRefSub").textContent = `${money(c.income)} × ${nf1.format(c.br.coef)}`;
+    $("#kDiffBox").className = "kpi " + (gap >= 0 ? "pos" : "neg");
+    $("#kPctBox").className = "kpi " + (gap >= 0 ? "pos" : "neg");
+
+    // Scale: from min(0, net) to the larger of net/ref with headroom.
+    const lo = Math.min(0, c.net * 1.1);
+    const hi = Math.max(c.ref * 1.6, c.net * 1.15);
+    const pos = x => (x - lo) / (hi - lo) * 100;
+    const refP = pos(c.ref), youP = Math.max(2, Math.min(98, pos(c.net)));
+    $("#zSpend").style.width = refP + "%";
+    $("#zAcc").style.width = (100 - refP) + "%";
+    $("#mkRef").style.left = refP + "%";
+    $("#mkRefTag").textContent = "Referință " + money(c.ref);
+    $("#mkYouTag").textContent = "Averea ta " + money(c.net);
+    const youEl = $("#mkYou");
+    if (!quiet && !reduce){ youEl.style.transition = "none"; youEl.style.left = pos(Math.max(lo,0)) + "%"; youEl.offsetWidth; youEl.style.transition = ""; }
+    requestAnimationFrame(()=> youEl.style.left = youP + "%");
+    // keep edge labels inside the card
+    youEl.querySelector(".tag").style.transform = youP > 80 ? "translateX(-35%)" : youP < 20 ? "translateX(35%)" : "";
+    $("#mkRefTag").style.transform = refP > 80 ? "translateX(-35%)" : refP < 20 ? "translateX(35%)" : "";
+
+    $("#calc").innerHTML = `
+      <div><dt>Acumulări</dt><dd>${money(c.assets)}</dd></div>
+      <div><dt>− Datorii</dt><dd>${money(c.debts)}</dd></div>
+      <div class="strong"><dt>= Averea netă</dt><dd>${money(c.net)}</dd></div>
+      <div class="sep"><dt>Salariul lunar</dt><dd>${money(val(INCOME_MAIN.id))}</dd></div>
+      <div><dt>× 12 luni = Venit anual</dt><dd>${money(c.income)}</dd></div>
+      <div><dt>× Coeficient în funcție de vârstă (${c.age} ani)</dt><dd>${nf1.format(c.br.coef)}</dd></div>
+      <div class="strong"><dt>= Referința</dt><dd>${money(c.ref)}</dd></div>
+      <div class="sep strong"><dt>Avere netă ${c.acc ? "≥" : "<"} Referință</dt><dd>${c.acc ? "Acumulator" : "Cheltuitor"}</dd></div>`;
+    document.querySelectorAll("#coefTable tr[data-b]").forEach((tr,i)=> tr.classList.toggle("on", BRACKETS[i] === c.br));
+
+    bars($("#assetBars"), ASSETS, c.assets);
+    bars($("#debtBars"), DEBTS, c.debts);
+
+    // Rule-based observations
+    const ins = [];
+    const liq = val("a_liq"), monthly = c.income / 12;
+    const months = monthly > 0 ? liq / monthly : 0;
+    ins.push(months >= 3
+      ? {k:"good", t:"Fond de urgență acoperit", d:`Banii lichizi acoperă ${nf1.format(months)} luni de venit. Ținta uzuală este 3–6 luni.`}
+      : {k:"warn", t:"Fond de urgență sub 3 luni", d:`Banii lichizi acoperă ${nf1.format(months)} luni de venit. Ținta uzuală este 3–6 luni, pentru reparații neașteptate sau cheltuieli medicale.`});
+    if (c.assets > 0){
+      const dr = c.debts / c.assets * 100;
+      ins.push(dr <= 40
+        ? {k:"good", t:`Grad de îndatorare ${nf.format(Math.round(dr))}%`, d:"Datoriile reprezintă o parte rezonabilă din ce deții."}
+        : {k:"warn", t:`Grad de îndatorare ${nf.format(Math.round(dr))}%`, d:"Datoriile consumă o parte mare din acumulări. Rambursarea lor crește direct averea netă."});
+    }
+    if (val("d_card") > 0) ins.push({k:"warn", t:"Sold pe cardul de credit", d:`${money(val("d_card"))} pe carduri. De regulă au cea mai mare dobândă, deci merită rambursate primele.`});
+    const re = val("a_re");
+    if (c.assets > 0 && re / c.assets >= 0.75) ins.push({k:"info", t:`${nf.format(Math.round(re/c.assets*100))}% din acumulări sunt imobiliare`, d:"Averea este concentrată într-un activ greu de transformat rapid în bani."});
+    if (val("a_inv") === 0) ins.push({k:"info", t:"Nicio investiție declarată", d:"Banii investiți (fonduri, titluri de stat, pensie privată) lucrează pentru tine în timp."});
+    const ICO = {good:"✓", warn:"!", info:"i"};
+    $("#insights").innerHTML = ins.map(i=>`<div class="ins ${i.k}"><span class="ic">${ICO[i.k]}</span><div><b>${i.t}</b><span>${i.d}</span></div></div>`).join("");
+
+  }
+
+  /* ---------- sample, reset, draft ---------- */
+  function allInputs(){ return [...document.querySelectorAll(".f-input input")]; }
+  function fill(data){
+    $("#pname").value = data.name || "";
+    ageIn.value = data.age ?? "";
+    if (data.age) ageRange.value = data.age;
+    cur = data.cur || "RON";
+    const r = document.querySelector(`input[name="cur"][value="${cur}"]`); if (r) r.checked = true;
+    allInputs().forEach(i=>{ const v = data.v && data.v[i.id]; i.value = v ? nf.format(v) : ""; });
+    $("#ageErr").hidden = true; $("#incErr").hidden = true;
+    update();
+  }
+  $("#loadSample").addEventListener("click",()=>{ fill(SAMPLE); usingSample = true; maxVisited = 3; show(3); });
+  $("#newPart").addEventListener("click",()=>{
+    fill({}); usingSample = false; maxVisited = 0;
+    bye(); setPid(newId()); connectLive();
+    show(0); ageIn.focus();
+  });
+
+  /* ---------- live session (GitHub Pages): one anonymous id per phone, presence and result over MQTT ---------- */
+  var usingSample = false;
+  const L = window.BilantLive || null;
+  const PID_KEY = "bilant-pid";
+  const SESS_KEY = "bilant-session";
+  const ID_RE = /^[a-zA-Z0-9_-]{8,64}$/;
+  function newId(){ return (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2))).replace(/[^a-zA-Z0-9_-]/g,""); }
+  function readCookie(){ const m = document.cookie.match(/(?:^|;\s*)bilant_pid=([a-zA-Z0-9_-]{8,64})/); return m ? m[1] : null; }
+  function setPid(id){
+    pid = id;
+    try{ localStorage.setItem(PID_KEY, id); }catch(e){}
+    document.cookie = "bilant_pid=" + id + "; Max-Age=31536000; Path=/; SameSite=Lax" + (location.protocol === "https:" ? "; Secure" : "");
+  }
+  // Same phone, same id: scanning the QR again continues as the same participant.
+  let pid = null;
+  try{ pid = localStorage.getItem(PID_KEY); }catch(e){}
+  if (!pid || !ID_RE.test(pid)) pid = readCookie();
+  if (!pid || !ID_RE.test(pid)) pid = newId();
+  setPid(pid);
+
+  // The session comes from the QR (?s=…&b=…) and is remembered, so a reload stays in the same session.
+  let session = null, brokerIx = 0;
+  (function(){
+    if (!L) return;
+    const q = new URLSearchParams(location.search);
+    let s = q.get("s"), b = parseInt(q.get("b"), 10);
+    if (!(s && L.SESSION_RE.test(s))){
+      s = null;
+      try{ const st = JSON.parse(localStorage.getItem(SESS_KEY) || "null"); if (st && L.SESSION_RE.test(st.s)){ s = st.s; b = st.b; } }catch(e){}
+    }
+    if (!s) return;
+    if (!(b >= 0 && b < L.BROKERS.length)) b = 0;
+    try{ localStorage.setItem(SESS_KEY, JSON.stringify({s, b})); }catch(e){}
+    session = s; brokerIx = b;
+  })();
+  const isLive = !!(session && L && window.mqtt);
+  const base = session && L ? L.ROOT + session : null;
+  const presenceTopic = () => base + "/p/" + pid;
+
+  let client = null;
+  let active = true; // false while another tab of this phone holds the form
+  function connectLive(){
+    if (!isLive) return;
+    if (client){ try{ client.end(true); }catch(e){} }
+    client = window.mqtt.connect(L.BROKERS[brokerIx], {
+      clientId: "bilant_p_" + L.randomId(10), connectTimeout: 8000, reconnectPeriod: 3000, keepalive: 30, clean: true, queueQoSZero: false,
+      will: { topic: presenceTopic(), payload: "0", qos: 0, retain: false } // the relay says "left" if the phone drops
+    });
+    client.on("connect", hello);
+    client.on("error", () => {});
+  }
+  function hello(){ if (isLive && active && client && client.connected && document.visibilityState === "visible") client.publish(presenceTopic(), "1", {qos: 0}); }
+  function bye(){ if (client && client.connected) client.publish(presenceTopic(), "0", {qos: 0}); }
+  connectLive();
+  setInterval(hello, 10000);
+  document.addEventListener("visibilitychange", hello);
+  window.addEventListener("pagehide", e => { if (!e.persisted && active) bye(); });
+  window.addEventListener("pageshow", e => { if (e.persisted) hello(); });
+
+  // A second scan opens a new tab: the newest tab takes over, older ones step aside and disconnect.
+  const TAB = newId();
+  let channel = null;
+  try{ channel = new BroadcastChannel("bilant-form"); }catch(e){}
+  function claim(){ active = true; $("#otherTab").hidden = true; if (channel) channel.postMessage({type:"claim", tab: TAB}); hello(); }
+  if (channel) channel.onmessage = ev => {
+    if (!ev.data || ev.data.type !== "claim" || ev.data.tab === TAB) return;
+    active = false; $("#otherTab").hidden = false;
+    if (client){ try{ client.end(); }catch(e){} client = null; } // graceful: no "left" message, the new tab carries on
+  };
+  $("#takeOver").addEventListener("click", () => { claim(); location.reload(); });
+  claim();
+
+  async function submitResult(){
+    const note = $("#sentNote"), txt = $("#sentTxt");
+    const c = compute();
+    if (!c.ready) return;
+    note.hidden = false; note.className = "sent";
+    if (usingSample){ txt.textContent = "Acesta este exemplul din prezentare. Nu se trimite."; return; }
+    if (!session){ txt.textContent = "Rezultatul este doar pe acest telefon. Ca să fie numărat, scanează codul QR de pe ecranul prezentatorului."; return; }
+    if (!isLive || !client){ note.className = "sent bad"; txt.textContent = "Nu ne-am putut conecta la sesiune. Verifică internetul și reîncarcă pagina."; return; }
+    txt.textContent = "Se trimite…";
+    const payload = JSON.stringify({verdict: c.acc ? "acc" : "spend", bracket: BRACKETS.indexOf(c.br), at: Date.now()});
+    const ok = await new Promise(resolve => {
+      const timer = setTimeout(() => resolve(false), 15000);
+      client.publish(base + "/r/" + pid, payload, {qos: 1, retain: true}, err => { clearTimeout(timer); resolve(!err); });
+    });
+    if (ok){ note.className = "sent ok"; txt.textContent = "Răspunsul tău a fost trimis, anonim."; }
+    else { note.className = "sent bad"; txt.textContent = "Rezultatul nu a putut fi trimis. Verifică internetul, apasă „Modifică datele”, apoi trimite din nou."; }
+  }
+
+  const KEY = "bilant-sim-v3"; // bump when the form changes so old drafts are ignored
+  try{ localStorage.removeItem("bilant-sim-v1"); }catch(e){}
+  function save(){
+    try{
+      const v = {}; allInputs().forEach(i=>{ const n = val(i.id); if (n) v[i.id] = n; });
+      localStorage.setItem(KEY, JSON.stringify({name:$("#pname").value, age:ageVal(), cur, v, step, maxVisited}));
+    }catch(e){}
+  }
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(KEY) || "null"); }catch(e){}
+  if (saved && (saved.age || Object.keys(saved.v||{}).length)){
+    fill(saved); usingSample = saved.name === SAMPLE.name; maxVisited = saved.maxVisited || 0;
+    const s = saved.step || 0;
+    step = -1; show(s >= 3 && !compute().ready ? 0 : Math.min(s, 3));
+  } else { update(); step = -1; show(0); }
+})();
+</script>
+</body>
+</html>
